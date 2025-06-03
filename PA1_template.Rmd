@@ -1,25 +1,110 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+output: html_document
+date: "2025-06-03"
 ---
 
+## 
 
-## Loading and preprocessing the data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
+## Code for Reading the Dataset and/or Processing the Data
 
+```{r}
+# 加载必要的库
+library(ggplot2)
+library(dplyr)
+library(lubridate)
 
-## What is mean total number of steps taken per day?
+## 1. 加载和预处理数据
+# 读取数据
+activity <- read.csv("activity.csv")
 
+# 转换日期格式
+activity$date <- as.Date(activity$date)
 
+## 2. 每天的总步数分析（忽略缺失值）
+# 计算每天总步数
+daily_steps <- activity %>%
+  group_by(date) %>%
+  summarise(total_steps = sum(steps, na.rm = TRUE))
 
-## What is the average daily activity pattern?
+# 绘制直方图
+ggplot(daily_steps, aes(x = total_steps)) +
+  geom_histogram(binwidth = 1000, fill = "blue", color = "black") +
+  labs(title = "每天总步数直方图（忽略缺失值）", 
+       x = "总步数", y = "频率")
 
+# 计算平均值和中位数
+mean_daily <- mean(daily_steps$total_steps, na.rm = TRUE)
+median_daily <- median(daily_steps$total_steps, na.rm = TRUE)
+print(paste("平均每天步数:", round(mean_daily, 2)))
+print(paste("中位数每天步数:", median_daily))
 
+## 3. 平均每日活动模式
+# 计算每个5分钟间隔的平均步数
+interval_avg <- activity %>%
+  group_by(interval) %>%
+  summarise(avg_steps = mean(steps, na.rm = TRUE))
 
-## Imputing missing values
+# 时间序列图
+ggplot(interval_avg, aes(x = interval, y = avg_steps)) +
+  geom_line() +
+  labs(title = "5分钟间隔平均步数时间序列", 
+       x = "5分钟间隔", y = "平均步数")
 
+# 找出步数最多的间隔
+max_interval <- interval_avg[which.max(interval_avg$avg_steps), ]
+print(paste("最多步数的间隔:", max_interval$interval, 
+            "步数:", round(max_interval$avg_steps, 2)))
 
+## 4. 缺失值处理
+# 计算缺失值数量
+missing_values <- sum(is.na(activity$steps))
+print(paste("缺失值数量:", missing_values))
 
-## Are there differences in activity patterns between weekdays and weekends?
+# 使用5分钟间隔平均值填补缺失值
+activity_filled <- activity %>%
+  group_by(interval) %>%
+  mutate(steps = ifelse(is.na(steps), mean(steps, na.rm = TRUE), steps)) %>%
+  ungroup()
+
+# 计算填补后的每天总步数
+daily_steps_filled <- activity_filled %>%
+  group_by(date) %>%
+  summarise(total_steps = sum(steps))
+
+# 绘制填补后的直方图
+ggplot(daily_steps_filled, aes(x = total_steps)) +
+  geom_histogram(binwidth = 1000, fill = "green", color = "black") +
+  labs(title = "每天总步数直方图（填补缺失值后）", 
+       x = "总步数", y = "频率")
+
+# 计算填补后的平均值和中位数
+mean_daily_filled <- mean(daily_steps_filled$total_steps)
+median_daily_filled <- median(daily_steps_filled$total_steps)
+print(paste("填补后平均每天步数:", round(mean_daily_filled, 2)))
+print(paste("填补后中位数每天步数:", median_daily_filled))
+
+## 5. 工作日和周末活动模式比较
+# 添加工作日/周末因子变量
+activity_filled <- activity_filled %>%
+  mutate(day_type = ifelse(weekdays(date) %in% c("Saturday", "Sunday"), 
+                          "周末", "工作日"))
+
+# 计算工作日和周末的平均步数
+day_type_avg <- activity_filled %>%
+  group_by(interval, day_type) %>%
+  summarise(avg_steps = mean(steps))
+
+# 绘制面板图
+ggplot(day_type_avg, aes(x = interval, y = avg_steps)) +
+  geom_line() +
+  facet_grid(day_type ~ .) +
+  labs(title = "工作日和周末5分钟间隔平均步数比较", 
+       x = "5分钟间隔", y = "平均步数")
+```
+
+## 
